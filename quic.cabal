@@ -30,6 +30,10 @@ flag fusion
     description: Use fusion AES-GCM engine from picotls
     manual:      True
 
+flag serialise-instances
+    description: Provide instances for the serialise library
+    manual:      True
+
 library
     exposed-modules:
         Network.QUIC
@@ -148,10 +152,14 @@ library
         network-byte-order >=0.1.7 && <0.2,
         network-control >=0.1.5 && <0.2,
         random >=1.3 && <1.4,
-        serialise,
         stm >=2.5 && <2.6,
         tls >=2.1.10 && <2.2,
         unix-time >=0.4.12 && <0.5
+
+    if flag(serialise-instances)
+        build-depends:
+          serialise
+        cpp-options: -DSERIALISE
 
     if os(linux)
         cc-options: -DOS_Linux

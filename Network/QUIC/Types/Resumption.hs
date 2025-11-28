@@ -1,9 +1,12 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Network.QUIC.Types.Resumption where
 
+#ifdef SERIALISE
 import Codec.Serialise
+#endif
 import GHC.Generics
 import Network.TLS hiding (Version)
 import Network.TLS.QUIC
@@ -29,7 +32,9 @@ data ResumptionInfo = ResumptionInfo
     }
     deriving (Eq, Show, Generic)
 
+#ifdef SERIALISE
 instance Serialise ResumptionInfo
+#endif
 
 defaultResumptionInfo :: ResumptionInfo
 defaultResumptionInfo =

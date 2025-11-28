@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -22,7 +23,9 @@ module Network.QUIC.Types.CID (
     cidInfoSRT,
 ) where
 
+#ifdef SERIALISE
 import Codec.Serialise
+#endif
 import Crypto.Hash
 import Crypto.KDF.HKDF
 import qualified Data.ByteString.Char8 as C8
@@ -39,7 +42,9 @@ myCIDLength = 8
 -- | A type for conneciton ID.
 newtype CID = CID Bytes deriving (Eq, Ord, Generic)
 
+#ifdef SERIALISE
 instance Serialise CID
+#endif
 
 instance Show CID where
     show (CID cid) = shortToString (enc16s cid)

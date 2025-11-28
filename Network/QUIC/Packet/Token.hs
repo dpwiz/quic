@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -10,7 +11,9 @@ module Network.QUIC.Packet.Token (
     decryptToken,
 ) where
 
+#ifdef SERIALISE
 import Codec.Serialise
+#endif
 import qualified Crypto.Token as CT
 import qualified Data.ByteString.Lazy as BL
 import Data.UnixTime
@@ -29,8 +32,10 @@ data CryptoToken = CryptoToken
     }
     deriving (Generic)
 
+#ifdef SERIALISE
 instance Serialise UnixTime
 instance Serialise CryptoToken
+#endif
 
 isRetryToken :: CryptoToken -> Bool
 isRetryToken token = isJust $ tokenCIDs token

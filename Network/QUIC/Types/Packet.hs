@@ -1,10 +1,13 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 
 module Network.QUIC.Types.Packet where
 
+#ifdef SERIALISE
 import Codec.Serialise
+#endif
 import Data.Ix
 import GHC.Generics
 import Network.TLS.QUIC (ExtensionID (EID_QuicTransportParameters, ExtensionID))
@@ -21,7 +24,9 @@ import Network.QUIC.Types.Time
 -- | QUIC version.
 newtype Version = Version Word32 deriving (Eq, Ord, Generic)
 
+#ifdef SERIALISE
 instance Serialise Version
+#endif
 
 {- FOURMOLU_DISABLE -}
 pattern Negotiation      :: Version
