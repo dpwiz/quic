@@ -1,5 +1,9 @@
 # ChangeLog
 
+## WIP
+
+* Support RFC 9221 "Unreliable datagrams".
+
 ## 0.3.1
 
 * Using tls v2.4.0.

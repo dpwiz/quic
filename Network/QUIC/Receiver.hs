@@ -5,6 +5,7 @@ module Network.QUIC.Receiver (
     receiver,
 ) where
 
+import Control.Concurrent.STM
 import qualified Control.Exception as E
 import qualified Data.ByteString as BS
 import Network.Control
@@ -457,6 +458,10 @@ processFrame _conn _lvl (ConnectionClose err _ftyp reason) = do
 processFrame _conn _lvl (ConnectionCloseApp err reason) = do
     let quicexc = ApplicationProtocolErrorIsReceived err reason
     E.throwIO quicexc
+processFrame conn lvl (Datagram dat) = do
+    when (lvl == InitialLevel || lvl == HandshakeLevel) $
+        closeConnection conn ProtocolViolation "DATAGRAM in Initial or Handshake"
+    atomically $ writeTQueue (datagramQ conn) dat
 processFrame conn lvl HandshakeDone = do
     when (isServer conn || lvl /= RTT1Level) $
         closeConnection conn ProtocolViolation "HANDSHAKE_DONE for server"

@@ -235,3 +235,15 @@ stopStream s aerr = do
         lvl <- getEncryptionLevel conn
         let frame = StopSending sid aerr
         putOutput conn $ OutControl lvl [frame]
+
+----------------------------------------------------------------
+
+-- | Sending a datagram.
+sendDatagram :: Connection -> ByteString -> IO ()
+sendDatagram conn dat = do
+    lvl <- getEncryptionLevel conn
+    putOutput conn $ OutControl lvl [Datagram dat]
+
+-- | Receiving a datagram.
+recvDatagram :: Connection -> IO ByteString
+recvDatagram conn = atomically $ readTQueue (datagramQ conn)

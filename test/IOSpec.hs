@@ -89,6 +89,9 @@ spec = do
     describe "concurrency" $ do
         it "can handle multiple clients" $ do
             withPipe (Randomly 20) $ testMultiSendRecv cc sc waitS 500
+    describe "datagram" $ do
+        it "can send and receive datagrams" $ do
+            withPipe (Randomly 20) $ testDatagram cc sc waitS
     describe "abortConnection" $ do
         it "can abort connection" $ do
             withPipe (Randomly 20) $ testAbort cc sc waitS
@@ -211,6 +214,22 @@ testMultiSendRecv cc sc waitS times = do
 appErr :: QUICException -> Bool
 appErr (ApplicationProtocolErrorIsReceived _ _) = True
 appErr _ = False
+
+testDatagram :: C.ClientConfig -> ServerConfig -> IO () -> IO ()
+testDatagram cc sc waitS = do
+    mvar <- newEmptyMVar
+    E.bracket (forkIO $ server mvar) killThread $ \_ -> client mvar
+  where
+    client mvar = do
+        waitS
+        C.run cc $ \conn -> do
+            let bs = BS.replicate 1000 1
+            sendDatagram conn bs
+            takeMVar mvar `shouldReturn` ()
+    server mvar = run sc $ \conn -> do
+        bs <- recvDatagram conn
+        bs `shouldBe` BS.replicate 1000 1
+        putMVar mvar ()
 
 testAbort :: C.ClientConfig -> ServerConfig -> IO () -> IO ()
 testAbort cc sc waitS = do

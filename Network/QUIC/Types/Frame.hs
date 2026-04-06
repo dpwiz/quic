@@ -40,6 +40,7 @@ data Frame
     | ConnectionClose TransportError FrameType ReasonPhrase
     | ConnectionCloseApp ApplicationProtocolError ReasonPhrase
     | HandshakeDone
+    | Datagram ByteString
     | UnknownFrame Int
     deriving (Eq, Show)
 

@@ -281,6 +281,7 @@ data Connection = Connection
     , bytesTx           :: IORef Int
     , bytesRx           :: IORef Int
     , connDone          :: TVar Bool
+    , datagramQ         :: TQueue ByteString
     , -- TLS
       pendingQ          :: Array EncryptionLevel (TVar [ReceivedPacket])
     , ciphers           :: IOArray EncryptionLevel Cipher
@@ -378,6 +379,7 @@ newConnection rl myParameters origVersionInfo myAuthCIDs peerAuthCIDs connDebugL
     bytesTx           <- newIORef 0
     bytesRx           <- newIORef 0
     connDone          <- newTVarIO False
+    datagramQ         <- newTQueueIO
     -- TLS
     pendingQ          <- makePendingQ
     ciphers           <- newArray (InitialLevel, RTT1Level) defaultCipher

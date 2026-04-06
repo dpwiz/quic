@@ -70,6 +70,8 @@ pattern RetrySourceConnectionId         :: Key
 pattern RetrySourceConnectionId          = Key 0x10
 pattern VersionInformation              :: Key
 pattern VersionInformation               = Key 0x11
+pattern MaxDatagramFrameSize            :: Key
+pattern MaxDatagramFrameSize             = Key 0x20
 pattern Grease                          :: Key
 pattern Grease                           = Key 0xff
 pattern GreaseQuicBit                   :: Key
@@ -95,6 +97,7 @@ data Parameters = Parameters
     , activeConnectionIdLimit :: Int
     , initialSourceConnectionId :: Maybe CID
     , retrySourceConnectionId :: Maybe CID
+    , maxDatagramFrameSize :: Int
     , grease :: Maybe ByteString
     , greaseQuicBit :: Bool
     , versionInformation :: Maybe VersionInfo
@@ -122,6 +125,7 @@ baseParameters =
         , activeConnectionIdLimit = 2
         , initialSourceConnectionId = Nothing
         , retrySourceConnectionId = Nothing
+        , maxDatagramFrameSize = 0
         , grease = Nothing
         , greaseQuicBit = False
         , versionInformation = Nothing
@@ -199,6 +203,8 @@ fromParameterList kvs = foldl' update params kvs
         x{initialSourceConnectionId = Just (toCID v)}
     update x (RetrySourceConnectionId, v) =
         x{retrySourceConnectionId = Just (toCID v)}
+    update x (MaxDatagramFrameSize, v) =
+        x{maxDatagramFrameSize = decInt v}
     update x (Grease, v) =
         x{grease = Just v}
     update x (GreaseQuicBit, _) =
@@ -253,6 +259,7 @@ toParameterList p =
             retrySourceConnectionId
             RetrySourceConnectionId
             (fromCID . fromJust)
+        , diff p maxDatagramFrameSize MaxDatagramFrameSize encInt
         , diff p greaseQuicBit GreaseQuicBit (const "")
         , diff p grease Grease fromJust
         , diff p versionInformation VersionInformation fromVersionInfo
@@ -302,6 +309,7 @@ defaultParameters =
         , initialMaxStreamsBidi = defaultMaxStreams -- 64
         , initialMaxStreamsUni = 3
         , activeConnectionIdLimit = 5
+        , maxDatagramFrameSize = 65535
         , greaseQuicBit = True
         }
 

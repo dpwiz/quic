@@ -134,6 +134,10 @@ encodeFrame wbuf (ConnectionCloseApp (ApplicationProtocolError err) reason) = do
     copyShortByteString wbuf reason
 encodeFrame wbuf HandshakeDone =
     write8 wbuf 0x1e
+encodeFrame wbuf (Datagram dat) = do
+    write8 wbuf 0x31
+    encodeInt' wbuf $ fromIntegral $ BS.length dat
+    copyByteString wbuf dat
 encodeFrame wbuf (UnknownFrame typ) =
     write8 wbuf $ fromIntegral typ
 
@@ -190,6 +194,8 @@ decodeFrame rbuf = do
         0x1c -> decodeConnectionClose rbuf
         0x1d -> decodeConnectionCloseApp rbuf
         0x1e -> return HandshakeDone
+        0x30 -> decodeDatagram rbuf False
+        0x31 -> decodeDatagram rbuf True
         x -> return $ UnknownFrame x
 
 decodePadding :: ReadBuffer -> IO Frame
@@ -360,3 +366,15 @@ decodePathChallenge rbuf =
 decodePathResponse :: ReadBuffer -> IO Frame
 decodePathResponse rbuf =
     PathResponse . PathData <$> extractShortByteString rbuf 8
+
+decodeDatagram :: ReadBuffer -> Bool -> IO Frame
+decodeDatagram rbuf hasLen = do
+    dat <-
+        if hasLen
+            then do
+                len <- fromIntegral <$> decodeInt' rbuf
+                extractByteString rbuf len
+            else do
+                len <- remainingSize rbuf
+                extractByteString rbuf len
+    return $ Datagram dat
