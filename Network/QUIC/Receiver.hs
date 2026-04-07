@@ -23,6 +23,7 @@ import Network.QUIC.Packet
 import Network.QUIC.Parameters
 import Network.QUIC.Qlog
 import Network.QUIC.Recovery
+import Control.Concurrent.STM
 import Network.QUIC.Stream
 import Network.QUIC.Types as QUIC
 
@@ -477,8 +478,11 @@ processFrame conn lvl HandshakeDone = do
 processFrame conn lvl (Datagram dat) = do
     when (lvl /= RTT0Level && lvl /= RTT1Level) $
         closeConnection conn ProtocolViolation "DATAGRAM in Initial or Handshake"
-    limit <- maxDatagramFrameSize <$> getMyParameters conn
-    if limit == 0 || BS.length dat > limit then
+    let limitBytes = maxDatagramFrameSize (getMyParameters conn)
+    -- Size includes type (1 byte), length (if 0x31) and payload.
+    -- We can conservatively estimate overhead: type (1) + length.
+    let overhead = 1 + BS.length (encodeInt (fromIntegral $ BS.length dat))
+    if limitBytes == 0 || (BS.length dat + overhead) > limitBytes then
         closeConnection conn ProtocolViolation "DATAGRAM size violation or not supported"
     else
         atomically $ writeTQueue (connRecvDatagramQ conn) dat

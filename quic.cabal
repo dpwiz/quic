@@ -262,6 +262,7 @@ test-suite spec
         network >=3.2.2,
         quic,
         ram,
+        stm >=2.5 && <2.6,
         tls,
         unix-time
 

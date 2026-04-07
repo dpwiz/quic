@@ -94,6 +94,7 @@ ackEliciting Padding{}            = False
 ackEliciting Ack{}                = False
 ackEliciting ConnectionClose{}    = False
 ackEliciting ConnectionCloseApp{} = False
+ackEliciting Datagram{}           = True
 ackEliciting _                    = True
 
 pathValidating :: Frame -> Bool

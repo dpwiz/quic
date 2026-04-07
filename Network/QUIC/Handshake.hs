@@ -292,6 +292,15 @@ setPeerParams conn _ctx peerExts = do
                 _ -> sendCCVNError
 
     setParams params = do
+        when (isClient conn) $ do
+            is0RTT <- isConnection0RTTReady conn
+            when is0RTT $ do
+                storedParams <- getPeerParameters conn
+                let storedMaxDatagram = maxDatagramFrameSize storedParams
+                    newMaxDatagram = maxDatagramFrameSize params
+                when (storedMaxDatagram > 0 && newMaxDatagram < storedMaxDatagram) $
+                    E.throwIO WrongDatagramSizeParameter
+
         setPeerParameters conn params
         mapM_ (setPeerStatelessResetToken conn) $ statelessResetToken params
         setTxMaxData conn $ initialMaxData params
@@ -336,6 +345,7 @@ sendCCVNError = E.throwIO WrongVersionInformation
 sendCCTLSError :: Connection -> TLS.TLSException -> IO ()
 sendCCTLSError conn (TLS.HandshakeFailed (TLS.Error_Misc "WrongTransportParameter")) = closeConnection conn TransportParameterError "Transport parameter error"
 sendCCTLSError conn (TLS.HandshakeFailed (TLS.Error_Misc "WrongVersionInformation")) = closeConnection conn VersionNegotiationError "Version negotiation error"
+sendCCTLSError conn (TLS.HandshakeFailed (TLS.Error_Misc "WrongDatagramSizeParameter")) = closeConnection conn ProtocolViolation "0-RTT datagram size violation"
 sendCCTLSError conn e = closeConnection conn err msg
   where
     tlserr = getErrorCause e

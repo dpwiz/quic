@@ -140,14 +140,10 @@ encodeFrame wbuf _isLast (ConnectionCloseApp (ApplicationProtocolError err) reas
     copyShortByteString wbuf reason
 encodeFrame wbuf _isLast HandshakeDone =
     write8 wbuf 0x1e
-encodeFrame wbuf isLast (Datagram dat) = do
-    if isLast then do
-        write8 wbuf 0x30
-        copyByteString wbuf dat
-    else do
-        write8 wbuf 0x31
-        encodeInt' wbuf $ fromIntegral $ BS.length dat
-        copyByteString wbuf dat
+encodeFrame wbuf _isLast (Datagram dat) = do
+    write8 wbuf 0x31
+    encodeInt' wbuf $ fromIntegral $ BS.length dat
+    copyByteString wbuf dat
 encodeFrame wbuf _isLast (UnknownFrame typ) =
     write8 wbuf $ fromIntegral typ
 

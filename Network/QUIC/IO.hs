@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Network.QUIC.IO where
 
 import Control.Concurrent.STM
@@ -11,8 +13,6 @@ import Network.QUIC.Imports
 import Network.QUIC.Parameters
 import Network.QUIC.Stream
 import Network.QUIC.Types
-import Network.QUIC.Connection.Types
-import Network.QUIC.Parameters (Parameters(..))
 
 -- | Creating a bidirectional stream.
 stream :: Connection -> IO Stream
@@ -249,9 +249,10 @@ sendDatagram conn dat = do
     lvl <- getEncryptionLevel conn
     when (lvl /= RTT0Level && lvl /= RTT1Level) $
         E.throwIO $ ConnectionIsClosed "Cannot send DATAGRAM"
-    limit <- maxDatagramFrameSize <$> getPeerParameters conn
+    peerParams <- getPeerParameters conn
+    let limitBytes = maxDatagramFrameSize peerParams
     let frameOverhead = 1 + BS.length (encodeInt (fromIntegral $ BS.length dat))
-    if limit == 0 || (BS.length dat + frameOverhead) > limit then
+    if limitBytes == 0 || (BS.length dat + frameOverhead) > limitBytes then
         E.throwIO $ ConnectionIsClosed "DATAGRAM size violation"
     else do
         let frame = Datagram dat

@@ -8,7 +8,6 @@ import Data.Bits
 import Data.ByteArray (ScrubbedBytes, convert)
 import qualified Data.ByteString as BS
 import Data.Maybe
-import Network.TLS.Extra.Cipher
 import Test.Hspec
 
 import Network.QUIC.Internal
