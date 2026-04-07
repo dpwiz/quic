@@ -357,7 +357,7 @@ newConnection rl myParameters origVersionInfo myAuthCIDs peerAuthCIDs connDebugL
     -- Peer
     peerParameters    <- newIORef baseParameters
     peerCIDDB         <- newTVarIO (newCIDDB peerCID)
-    -- Queus
+    -- Queues
     inputQ            <- newTQueueIO
     cryptoQ           <- newTQueueIO
     outputQ           <- newTQueueIO
@@ -425,7 +425,6 @@ clientConnection
     -> VersionInfo
     -> AuthCIDs
     -> AuthCIDs
-    -> DatagramQ
     -> DebugLogger
     -> QLogger
     -> Hooks
@@ -437,8 +436,8 @@ clientConnection
     -> Recv
     -> (CID -> StatelessResetToken)
     -> IO Connection
-clientConnection ClientConfig{..} verInfo myAuthCIDs peerAuthCIDs debugLog qLog hooks sref piref q connRecvDatagramQ send recv genSRT =
-    newConnection Client ccParameters verInfo myAuthCIDs peerAuthCIDs debugLog qLog hooks sref piref q connRecvDatagramQ send recv genSRT
+clientConnection ClientConfig{..} verInfo myAuthCIDs peerAuthCIDs connDebugLog connQLog connHooks connSocket peerInfo connRecvQ connRecvDatagramQ connSend connRecv genStatelessResetToken =
+    newConnection Client ccParameters verInfo myAuthCIDs peerAuthCIDs connDebugLog connQLog connHooks connSocket peerInfo connRecvQ connRecvDatagramQ connSend connRecv genStatelessResetToken
 
 serverConnection
     :: ServerConfig
@@ -456,8 +455,8 @@ serverConnection
     -> Recv
     -> (CID -> StatelessResetToken)
     -> IO Connection
-serverConnection ServerConfig{..} verInfo myAuthCIDs peerAuthCIDs debugLog qLog hooks sref piref q connRecvDatagramQ send recv genSRT =
-    newConnection Server scParameters verInfo myAuthCIDs peerAuthCIDs debugLog qLog hooks sref piref q connRecvDatagramQ send recv genSRT
+serverConnection ServerConfig{..} verInfo myAuthCIDs peerAuthCIDs connDebugLog connQLog connHooks connSocket peerInfo connRecvQ connRecvDatagramQ connSend connRecv genStatelessResetToken =
+    newConnection Server scParameters verInfo myAuthCIDs peerAuthCIDs connDebugLog connQLog connHooks connSocket peerInfo connRecvQ connRecvDatagramQ connSend connRecv genStatelessResetToken
 
 ----------------------------------------------------------------
 

@@ -8,8 +8,11 @@ import Network.Control
 import Network.QUIC.Connection
 import Network.QUIC.Connector
 import Network.QUIC.Imports
+import Network.QUIC.Parameters
 import Network.QUIC.Stream
 import Network.QUIC.Types
+import Network.QUIC.Connection.Types
+import Network.QUIC.Parameters (Parameters(..))
 
 -- | Creating a bidirectional stream.
 stream :: Connection -> IO Stream
@@ -235,3 +238,26 @@ stopStream s aerr = do
         lvl <- getEncryptionLevel conn
         let frame = StopSending sid aerr
         putOutput conn $ OutControl lvl [frame]
+
+-- | Sending a DATAGRAM frame.
+--   This sends a DATAGRAM frame to the peer.
+--   If the datagram is larger than the peer's `max_datagram_frame_size` (or if 0),
+--   an exception is thrown (or it simply silently fails).
+--   For now we'll throw an `E.throwIO` if it exceeds the peer's limit or if 0.
+sendDatagram :: Connection -> ByteString -> IO ()
+sendDatagram conn dat = do
+    lvl <- getEncryptionLevel conn
+    when (lvl /= RTT0Level && lvl /= RTT1Level) $
+        E.throwIO $ ConnectionIsClosed "Cannot send DATAGRAM"
+    limit <- maxDatagramFrameSize <$> getPeerParameters conn
+    let frameOverhead = 1 + BS.length (encodeInt (fromIntegral $ BS.length dat))
+    if limit == 0 || (BS.length dat + frameOverhead) > limit then
+        E.throwIO $ ConnectionIsClosed "DATAGRAM size violation"
+    else do
+        let frame = Datagram dat
+        putOutput conn $ OutControl lvl [frame]
+
+-- | Receiving a DATAGRAM frame.
+--   This blocks until a DATAGRAM frame is received.
+recvDatagram :: Connection -> IO ByteString
+recvDatagram conn = atomically $ readTQueue (connRecvDatagramQ conn)

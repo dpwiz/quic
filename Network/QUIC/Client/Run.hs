@@ -10,6 +10,7 @@ module Network.QUIC.Client.Run (
 ) where
 
 import Control.Concurrent
+import Control.Concurrent.STM
 import Control.Concurrent.Async
 import qualified Control.Exception as E
 import Foreign.C.Types

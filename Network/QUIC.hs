@@ -34,6 +34,8 @@ module Network.QUIC (
     recvStream,
     sendStream,
     sendStreamMany,
+    sendDatagram,
+    recvDatagram,
 
     -- * Information
     ConnectionInfo,
