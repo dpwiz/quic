@@ -242,6 +242,7 @@ data Connection = Connection
     , connRecv          :: ~Recv -- ~ for testing
     -- Manage
     , connRecvQ         :: RecvQ
+    , connRecvDatagramQ :: DatagramQ
     , connSocket        :: IORef Socket
     , genStatelessResetToken :: CID -> StatelessResetToken
     , readers           :: IORef (Map Word64 (Weak ThreadId))
@@ -337,11 +338,12 @@ newConnection
     -> IORef Socket
     -> IORef PeerInfo
     -> RecvQ
+    -> DatagramQ
     -> Send
     -> Recv
     -> (CID -> StatelessResetToken)
     -> IO Connection
-newConnection rl myParameters origVersionInfo myAuthCIDs peerAuthCIDs connDebugLog connQLog connHooks connSocket peerInfo connRecvQ ~connSend ~connRecv genStatelessResetToken = do
+newConnection rl myParameters origVersionInfo myAuthCIDs peerAuthCIDs connDebugLog connQLog connHooks connSocket peerInfo connRecvQ connRecvDatagramQ ~connSend ~connRecv genStatelessResetToken = do
     connState         <- newConnState rl
     -- Manage
     readers           <- newIORef Map.empty
@@ -423,18 +425,20 @@ clientConnection
     -> VersionInfo
     -> AuthCIDs
     -> AuthCIDs
+    -> DatagramQ
     -> DebugLogger
     -> QLogger
     -> Hooks
     -> IORef Socket
     -> IORef PeerInfo
     -> RecvQ
+    -> DatagramQ
     -> Send
     -> Recv
     -> (CID -> StatelessResetToken)
     -> IO Connection
-clientConnection ClientConfig{..} verInfo myAuthCIDs peerAuthCIDs =
-    newConnection Client ccParameters verInfo myAuthCIDs peerAuthCIDs
+clientConnection ClientConfig{..} verInfo myAuthCIDs peerAuthCIDs debugLog qLog hooks sref piref q connRecvDatagramQ send recv genSRT =
+    newConnection Client ccParameters verInfo myAuthCIDs peerAuthCIDs debugLog qLog hooks sref piref q connRecvDatagramQ send recv genSRT
 
 serverConnection
     :: ServerConfig
@@ -447,12 +451,13 @@ serverConnection
     -> IORef Socket
     -> IORef PeerInfo
     -> RecvQ
+    -> DatagramQ
     -> Send
     -> Recv
     -> (CID -> StatelessResetToken)
     -> IO Connection
-serverConnection ServerConfig{..} verInfo myAuthCIDs peerAuthCIDs =
-    newConnection Server scParameters verInfo myAuthCIDs peerAuthCIDs
+serverConnection ServerConfig{..} verInfo myAuthCIDs peerAuthCIDs debugLog qLog hooks sref piref q connRecvDatagramQ send recv genSRT =
+    newConnection Server scParameters verInfo myAuthCIDs peerAuthCIDs debugLog qLog hooks sref piref q connRecvDatagramQ send recv genSRT
 
 ----------------------------------------------------------------
 
@@ -471,6 +476,8 @@ type OutputQ = TQueue Output
 ----------------------------------------------------------------
 
 type SendStreamQ = TQueue TxStreamData
+
+type DatagramQ = TQueue ByteString
 
 data Shared = Shared
     { sharedCloseSent :: IORef Bool

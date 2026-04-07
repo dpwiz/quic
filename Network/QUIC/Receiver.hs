@@ -474,6 +474,14 @@ processFrame conn lvl HandshakeDone = do
     getConnectionInfo conn >>= onConnectionEstablished (connHooks conn)
     -- to receive NewSessionTicket
     fire conn (Microseconds 1000000) $ killHandshaker conn lvl
+processFrame conn lvl (Datagram dat) = do
+    when (lvl /= RTT0Level && lvl /= RTT1Level) $
+        closeConnection conn ProtocolViolation "DATAGRAM in Initial or Handshake"
+    limit <- maxDatagramFrameSize <$> getMyParameters conn
+    if limit == 0 || BS.length dat > limit then
+        closeConnection conn ProtocolViolation "DATAGRAM size violation or not supported"
+    else
+        atomically $ writeTQueue (connRecvDatagramQ conn) dat
 processFrame conn _ _ = closeConnection conn ProtocolViolation "Frame is not allowed"
 
 -- Return value indicates duplication.
