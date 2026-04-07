@@ -242,6 +242,19 @@ stopStream s aerr = do
 sendDatagram :: Connection -> ByteString -> IO ()
 sendDatagram conn dat = do
     lvl <- getEncryptionLevel conn
+    when (lvl == InitialLevel || lvl == HandshakeLevel) $
+        E.throwIO $ ConnectionIsClosed "DATAGRAM is not allowed in Initial or Handshake"
+    limit <- maxDatagramFrameSize <$> getPeerParameters conn
+    when (limit == 0) $
+        E.throwIO $ ConnectionIsClosed "DATAGRAM is not supported by the peer"
+    -- 1 byte for frame type (0x31)
+    -- variable length for length field (assume worst case 8 bytes or just use exact, but standard allows any up to limit)
+    -- Wait, if limit is only the payload size or the whole frame size? The RFC says "maximum size of a DATAGRAM frame (including the frame type, length, and payload) the endpoint is willing to receive".
+    -- Let's check max_datagram_frame_size check.
+    -- Length of Datagram frame is 1 + encodedSize(length) + length, but since it can be 0x30 without length, the smallest representation is 1 + length.
+    let len = BS.length dat
+    when (len + 1 > limit) $
+        E.throwIO $ ConnectionIsClosed "DATAGRAM is too large"
     putOutput conn $ OutControl lvl [Datagram dat]
 
 -- | Receiving a datagram.

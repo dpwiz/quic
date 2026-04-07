@@ -19,7 +19,11 @@ import Network.QUIC.Types
 
 encodeFrames :: [Frame] -> IO ByteString
 encodeFrames frames = withWriteBuffer 2048 $ \wbuf ->
-    mapM_ (encodeFrame wbuf) frames
+    loop frames wbuf
+  where
+    loop [] _ = return ()
+    loop [f] wbuf = encodeFrame wbuf f True
+    loop (f:fs) wbuf = encodeFrame wbuf f False >> loop fs wbuf
 
 encodeFramesWithPadding
     :: Buffer
@@ -31,13 +35,17 @@ encodeFramesWithPadding buf siz frames = do
     zeroMemory buf $ fromIntegral siz -- padding
     wbuf <- newWriteBuffer buf siz
     save wbuf
-    mapM_ (encodeFrame wbuf) frames
+    loop frames wbuf
     savingSize wbuf
+  where
+    loop [] _ = return ()
+    loop [f] wbuf = encodeFrame wbuf f True
+    loop (f:fs) wbuf = encodeFrame wbuf f False >> loop fs wbuf
 
-encodeFrame :: WriteBuffer -> Frame -> IO ()
-encodeFrame wbuf (Padding n) = replicateM_ n $ write8 wbuf 0x00
-encodeFrame wbuf Ping = write8 wbuf 0x01
-encodeFrame wbuf (Ack (AckInfo largest range1 ranges) (Milliseconds delay)) = do
+encodeFrame :: WriteBuffer -> Frame -> Bool -> IO ()
+encodeFrame wbuf (Padding n) _ = replicateM_ n $ write8 wbuf 0x00
+encodeFrame wbuf Ping _ = write8 wbuf 0x01
+encodeFrame wbuf (Ack (AckInfo largest range1 ranges) (Milliseconds delay)) _ = do
     write8 wbuf 0x02
     encodeInt' wbuf $ fromIntegral largest
     encodeInt' wbuf $ fromIntegral delay
@@ -48,25 +56,25 @@ encodeFrame wbuf (Ack (AckInfo largest range1 ranges) (Milliseconds delay)) = do
     putRanges (gap, rng) = do
         encodeInt' wbuf $ fromIntegral gap
         encodeInt' wbuf $ fromIntegral rng
-encodeFrame wbuf (ResetStream sid (ApplicationProtocolError err) finalLen) = do
+encodeFrame wbuf (ResetStream sid (ApplicationProtocolError err) finalLen) _ = do
     write8 wbuf 0x04
     encodeInt' wbuf $ fromIntegral sid
     encodeInt' wbuf $ fromIntegral err
     encodeInt' wbuf $ fromIntegral finalLen
-encodeFrame wbuf (StopSending sid (ApplicationProtocolError err)) = do
+encodeFrame wbuf (StopSending sid (ApplicationProtocolError err)) _ = do
     write8 wbuf 0x05
     encodeInt' wbuf $ fromIntegral sid
     encodeInt' wbuf $ fromIntegral err
-encodeFrame wbuf (CryptoF off cdata) = do
+encodeFrame wbuf (CryptoF off cdata) _ = do
     write8 wbuf 0x06
     encodeInt' wbuf $ fromIntegral off
     encodeInt' wbuf $ fromIntegral $ BS.length cdata
     copyByteString wbuf cdata
-encodeFrame wbuf (NewToken token) = do
+encodeFrame wbuf (NewToken token) _ = do
     write8 wbuf 0x07
     encodeInt' wbuf $ fromIntegral $ BS.length token
     copyByteString wbuf token
-encodeFrame wbuf (StreamF sid off dats fin) = do
+encodeFrame wbuf (StreamF sid off dats fin) _ = do
     let flag0 = 0x08 .|. 0x02 -- len
         flag1
             | off /= 0 = flag0 .|. 0x04 -- off
@@ -79,31 +87,31 @@ encodeFrame wbuf (StreamF sid off dats fin) = do
     when (off /= 0) $ encodeInt' wbuf $ fromIntegral off
     encodeInt' wbuf $ fromIntegral $ totalLen dats
     mapM_ (copyByteString wbuf) dats
-encodeFrame wbuf (MaxData n) = do
+encodeFrame wbuf (MaxData n) _ = do
     write8 wbuf 0x10
     encodeInt' wbuf $ fromIntegral n
-encodeFrame wbuf (MaxStreamData sid n) = do
+encodeFrame wbuf (MaxStreamData sid n) _ = do
     write8 wbuf 0x11
     encodeInt' wbuf $ fromIntegral sid
     encodeInt' wbuf $ fromIntegral n
-encodeFrame wbuf (MaxStreams dir ms) = do
+encodeFrame wbuf (MaxStreams dir ms) _ = do
     case dir of
         Bidirectional -> write8 wbuf 0x12
         Unidirectional -> write8 wbuf 0x13
     encodeInt' wbuf $ fromIntegral ms
-encodeFrame wbuf (DataBlocked n) = do
+encodeFrame wbuf (DataBlocked n) _ = do
     write8 wbuf 0x14
     encodeInt' wbuf $ fromIntegral n
-encodeFrame wbuf (StreamDataBlocked sid n) = do
+encodeFrame wbuf (StreamDataBlocked sid n) _ = do
     write8 wbuf 0x15
     encodeInt' wbuf $ fromIntegral sid
     encodeInt' wbuf $ fromIntegral n
-encodeFrame wbuf (StreamsBlocked dir ms) = do
+encodeFrame wbuf (StreamsBlocked dir ms) _ = do
     case dir of
         Bidirectional -> write8 wbuf 0x16
         Unidirectional -> write8 wbuf 0x17
     encodeInt' wbuf $ fromIntegral ms
-encodeFrame wbuf (NewConnectionID cidInfo retirePriorTo) = do
+encodeFrame wbuf (NewConnectionID cidInfo retirePriorTo) _ = do
     write8 wbuf 0x18
     encodeInt' wbuf $ fromIntegral $ cidInfoSeq cidInfo
     encodeInt' wbuf $ fromIntegral retirePriorTo
@@ -112,33 +120,37 @@ encodeFrame wbuf (NewConnectionID cidInfo retirePriorTo) = do
     copyShortByteString wbuf cid
     let StatelessResetToken token = cidInfoSRT cidInfo
     copyShortByteString wbuf token
-encodeFrame wbuf (RetireConnectionID seqNum) = do
+encodeFrame wbuf (RetireConnectionID seqNum) _ = do
     write8 wbuf 0x19
     encodeInt' wbuf $ fromIntegral seqNum
-encodeFrame wbuf (PathChallenge (PathData pdata)) = do
+encodeFrame wbuf (PathChallenge (PathData pdata)) _ = do
     write8 wbuf 0x1a
     copyByteString wbuf $ Short.fromShort pdata
-encodeFrame wbuf (PathResponse (PathData pdata)) = do
+encodeFrame wbuf (PathResponse (PathData pdata)) _ = do
     write8 wbuf 0x1b
     copyByteString wbuf $ Short.fromShort pdata
-encodeFrame wbuf (ConnectionClose (TransportError err) ftyp reason) = do
+encodeFrame wbuf (ConnectionClose (TransportError err) ftyp reason) _ = do
     write8 wbuf 0x1c
     encodeInt' wbuf $ fromIntegral err
     encodeInt' wbuf $ fromIntegral ftyp
     encodeInt' wbuf $ fromIntegral $ Short.length reason
     copyShortByteString wbuf reason
-encodeFrame wbuf (ConnectionCloseApp (ApplicationProtocolError err) reason) = do
+encodeFrame wbuf (ConnectionCloseApp (ApplicationProtocolError err) reason) _ = do
     write8 wbuf 0x1d
     encodeInt' wbuf $ fromIntegral err
     encodeInt' wbuf $ fromIntegral $ Short.length reason
     copyShortByteString wbuf reason
-encodeFrame wbuf HandshakeDone =
+encodeFrame wbuf HandshakeDone _ =
     write8 wbuf 0x1e
-encodeFrame wbuf (Datagram dat) = do
-    write8 wbuf 0x31
-    encodeInt' wbuf $ fromIntegral $ BS.length dat
-    copyByteString wbuf dat
-encodeFrame wbuf (UnknownFrame typ) =
+encodeFrame wbuf (Datagram dat) isLast = do
+    if isLast then do
+        write8 wbuf 0x30
+        copyByteString wbuf dat
+    else do
+        write8 wbuf 0x31
+        encodeInt' wbuf $ fromIntegral $ BS.length dat
+        copyByteString wbuf dat
+encodeFrame wbuf (UnknownFrame typ) _ =
     write8 wbuf $ fromIntegral typ
 
 ----------------------------------------------------------------

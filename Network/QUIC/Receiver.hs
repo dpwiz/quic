@@ -461,6 +461,10 @@ processFrame _conn _lvl (ConnectionCloseApp err reason) = do
 processFrame conn lvl (Datagram dat) = do
     when (lvl == InitialLevel || lvl == HandshakeLevel) $
         closeConnection conn ProtocolViolation "DATAGRAM in Initial or Handshake"
+    limit <- maxDatagramFrameSize <$> getMyParameters conn
+    let len = BS.length dat
+    when (limit == 0 || len + 1 > limit) $
+        closeConnection conn ProtocolViolation "DATAGRAM is not supported or too large"
     atomically $ writeTQueue (datagramQ conn) dat
 processFrame conn lvl HandshakeDone = do
     when (isServer conn || lvl /= RTT1Level) $

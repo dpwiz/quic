@@ -246,6 +246,14 @@ setPeerParams conn _ctx peerExts = do
         Just params -> do
             checkAuthCIDs params
             checkInvalid params
+            when (isClient conn) $ do
+                is0RTT <- readIORef (shared1RTTReady (shared conn)) -- Not a good way, let's use getResumptionInfo
+                ri <- getResumptionInfo conn
+                when (is0RTTPossible ri) $ do
+                    let storedMaxDatagram = resumptionMaxDatagramFrameSize ri
+                        newMaxDatagram = maxDatagramFrameSize params
+                    when (newMaxDatagram < storedMaxDatagram) $
+                        sendCCTLSAlert conn TLS.IllegalParameter "max_datagram_frame_size decreased"
             setParams params
             qlogParamsSet conn (params, "remote")
             if isClient conn
